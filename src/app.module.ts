@@ -8,15 +8,18 @@ import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
 import { MqttService } from './mqtt/mqtt.service';
 import { TrayModule } from './tray/tray.module';
+import { JarModule } from './jar/jar.module';
+import { MqttModule } from './mqtt/mqtt.module';
 
 @Module({
   imports: [
     MongooseModule.forRoot(config.dbUrl),
     ConfigModule.forRoot({ isGlobal: true }), 
-
+   MqttModule,
     AuthModule,
     UserModule,
     TrayModule,
+    JarModule,
     
   ],
   controllers:[AppController],
