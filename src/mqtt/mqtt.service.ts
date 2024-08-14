@@ -15,7 +15,7 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit() {
-    const brokerUrl = 'tcp://68.183.247.103:15000';
+    const brokerUrl = 'mqtt://broker.emqx.io:1883';
     const options: mqtt.IClientOptions = {
       username: 'katomaran',
       password: 'KatoTest',
@@ -25,7 +25,7 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
 
     this.client.on('connect', () => {
       console.log('Connected to MQTT broker');
-      this.client.subscribe('/topic/qos1', (err) => {
+      this.client.subscribe('test_smart', (err) => {
         if (err) {
           console.error('Failed to subscribe to topic:', err);
         } else {
@@ -35,7 +35,6 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
     });
 
     this.client.on('message', async (topic, message) => {
-      // console.log(`Received message on topic ${topic}: ${message.toString()}`);
       try {
         const data = JSON.parse(message.toString());
         await this.handleMqttData(data);
@@ -62,9 +61,9 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
   }
 
   async handleMqttData(data: any) {
-    if (!data || !data.macAddress) {
-      throw new BadRequestException('Invalid data received');
-    }
+    // if (!data || !data.macAddress || !data.userId || !data.name) {
+    //   throw new BadRequestException('Invalid data received: Missing required fields');
+    // }
 
     const existingTray = await this.trayModel.findOne({ macAddress: data.macAddress });
 
@@ -73,27 +72,29 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    if (!Types.ObjectId.isValid(data?.tray?.userId)) {
+      throw new BadRequestException('Invalid user ID');
+    }
+
     const newTray = new this.trayModel({
       name: data.name,
       macAddress: data.macAddress,
-      user: data.userId, 
-      jarCount: data.jarCount,
-      battery: data.battery,
-      showBatteryPercentage: data.showBattery, 
-      showJarCounts: data.showJarCount,
-      showJarDetails: data.showJarDetails,
+      user: new Types.ObjectId(data.userId),
+      jarCount: data?.tray?.jarCount,
+      battery: data?.tray?.battery,
+      showBatteryPercentage: data?.tray?.showBattery, 
+      showJarCounts: data?.tray?.showJarCount,
+      showJarDetails: data?.tray?.showJarDetails,
       wifiCred: {
-        ssid: data.wifiCred.ssid,
-        password: data.wifiCred.password,
+        ssid: data.wifiCred?.ssid || '',
+        password: data.wifiCred?.password || '', 
       },
     });
 
-    // Save the tray document to the database
     try {
       const savedTray = await newTray.save();
       console.log('Tray details saved successfully:', savedTray);
 
-      // Save the jars associated with this tray
       await this.saveJars(data.jars, savedTray._id as Types.ObjectId);
     } catch (error) {
       console.error('Error saving tray details:', error);
@@ -107,11 +108,11 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
     }
 
     const jarDocuments = jars.map(jar => ({
-      trayId: trayId, // Use the ObjectId directly
+      trayId: trayId, 
       name: jar.name,
       uniqueId: jar.uniqueId,
       quantity: jar.quantity,
-      expirtyDate: jar.expirtyDate, // Store as a string
+      expirtyDate: jar.expirtyDate,
       showQuantity: jar.showQuantity,
       primaryPosition: jar.primaryPosition,
       assignedPosition: jar.assignedPosition,
@@ -123,6 +124,19 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       console.error('Error saving jar details:', error);
     }
+  }
+
+  async publishCombinedUpdate(data: any, callback: (error?: Error) => void) {
+    console.log('Attempting to publish combined update to MQTT:', data);
+    this.client.publish('test_smart', JSON.stringify(data), {}, (error) => {
+      if (error) {
+        console.error('Error publishing combined update to MQTT:', error);
+        callback(error);
+      } else {
+        console.log('Published combined update to MQTT:', data);
+        callback();
+      }
+    });
   }
 
   onModuleDestroy() {

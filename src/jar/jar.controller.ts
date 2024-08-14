@@ -1,31 +1,56 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
-import { Jar } from './jar.schema';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put } from '@nestjs/common';
 import { JarService } from './jar.service';
+import { CreateJarDto, UpdateJarDto } from './jar.dto';
 
 @Controller('jars')
 export class JarController {
   constructor(private readonly jarService: JarService) {}
 
-  @Get('tray/:id')
-  async getJarsByTrayId(@Param('id') trayId: string): Promise<Jar[]> {
-    return this.jarService.getJarsByTrayId(trayId);
+  @Post()
+  async createJar(@Body() jarData: CreateJarDto) {
+    const jar = await this.jarService.createJar(jarData);
+    return {
+      status: true,
+      data: jar,
+    };
   }
 
   @Get(':id')
-  async getJarById(@Param('id') id: string): Promise<Jar | null> {
-    return this.jarService.getJarById(id);
+  async getJarById(@Param('id') id: string) {
+    const jar = await this.jarService.findById(id);
+    return {
+      status: true,
+      data: jar,
+    };
   }
 
-  @Patch(':id')
+  @Put(':id') 
   async updateJar(
     @Param('id') id: string,
-    @Body() jarData: Partial<Jar>,
-  ): Promise<Jar | null> {
-    return this.jarService.updateJar(id, jarData);
+    @Body() jarData: UpdateJarDto,
+  ) {
+    const updatedJar = await this.jarService.update(id, jarData);
+    return {
+      status: true,
+      data: updatedJar,
+    };
   }
 
   @Delete(':id')
-  async deleteJar(@Param('id') id: string): Promise<Jar | null> {
-    return this.jarService.deleteJar(id);
+  async deleteJar(@Param('id') id: string) {
+    const deletedJar = await this.jarService.Delete(id);
+    return {
+      status: true,
+      data: deletedJar,
+    };
+  }
+
+  @Get('tray/:id') 
+  async getJarsByTrayId(@Param('id') trayId: string) {
+    const jars = await this.jarService.getJarsByTrayId(trayId); 
+    return {
+      status: true,
+      data: jars,
+    };
   }
 }

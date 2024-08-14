@@ -1,11 +1,16 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Jar, JarSchema } from './jar.schema';
-import { JarService } from './jar.service'; // Ensure you have a service for Jar
+import { JarService } from './jar.service'; 
+import { JarController } from './jar.controller';
+import { TrayModule } from 'src/tray/tray.module';
 
 @Module({
-  imports: [MongooseModule.forFeature([{ name: Jar.name, schema: JarSchema }])],
-  providers: [JarService], // Provide JarService
-  exports: [JarService], // Export JarService
+  imports: [MongooseModule.forFeature([{ name: Jar.name, schema: JarSchema }]),
+  forwardRef(() => TrayModule),],
+  controllers: [JarController],
+
+  providers: [JarService], 
+  exports: [JarService], 
 })
 export class JarModule {}

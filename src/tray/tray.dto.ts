@@ -20,23 +20,25 @@ export class CreateTrayDto {
 }
 
 export class UpdateTrayDto {
-  @IsString()
   @IsOptional()
+  @IsString()
   name?: string;
 
-  @IsBoolean()
   @IsOptional()
+  @IsBoolean()
   showBatteryPercentage?: boolean;
 
-  @IsBoolean()
   @IsOptional()
+  @IsBoolean()
   showJarCounts?: boolean;
 
-  @IsBoolean()
   @IsOptional()
+  @IsBoolean()
   showJarDetails?: boolean;
 
-  @IsString()
-  @IsOptional()
-  user?: string;
+  @IsOptional() 
+  mqttUpdate?: boolean;
+
+ 
 }
+  

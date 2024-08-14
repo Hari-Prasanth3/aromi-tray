@@ -1,7 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema } from 'mongoose';
 import { User } from '../user/user.schema';
-import { Jar } from '../jar/jar.schema';
 
 export type TrayDocument = Tray & Document;
 
@@ -18,6 +17,8 @@ export class Tray {
 
   @Prop({ default: false })
   showJarDetails: boolean;
+
+
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: User.name, required: true })
   user: MongooseSchema.Types.ObjectId;
@@ -38,6 +39,8 @@ export class Tray {
   };
 
   
+  @Prop({ required: true, default: false })
+  mqttUpdate: boolean;
 }
 
 export const TraySchema = SchemaFactory.createForClass(Tray);
