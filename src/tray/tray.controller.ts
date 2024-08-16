@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, NotFoundException, Param, Patch, Put } from '@nestjs/common';
 import { Tray } from './tray.schema';
 import { TrayService } from './tray.service';
 import { UpdateTrayDto } from './tray.dto'; 
@@ -6,15 +6,6 @@ import { UpdateTrayDto } from './tray.dto';
 @Controller('trays')
 export class TrayController {
   constructor(private readonly trayService: TrayService) {}
-
-  // @Get(':id')
-  // async getTrayById(@Param('id') id: string): Promise<{ status: boolean; data: Tray | null }> {
-  //   const tray = await this.trayService.findById(id);
-  //   return {
-  //     status: true,
-  //     data: tray,
-  //   };
-  // }
 
   @Get(':id') 
   async getTrayWithJars(@Param('id') id: string) {
@@ -25,28 +16,15 @@ export class TrayController {
     };
   }
 
-  // @Put(':id')
-  // async updateTray(
-  //   @Param('id') id: string,
-  //   @Body() trayData: UpdateTrayDto, 
-  // ): Promise<{ status: boolean; data: Tray | null }> {
-  //   const updatedTray = await this.trayService.update(id, trayData);
-  //   return updatedTray
-  // }
-
   @Put(':id')
-  async updateTray(
-    @Param('id') id: string,
-    @Body() trayData: UpdateTrayDto, 
-  ): Promise<{ status: boolean; data: Tray | null }> {
-    const updatedTray = await this.trayService.update(id, trayData);
-    
-    await this.trayService.publishTrayUpdate(updatedTray);
+  async updateTray(@Param('id') id: string, @Body() updateTrayDto: UpdateTrayDto) {
+    const updatedTray = await this.trayService.update(id, updateTrayDto);
 
-    return {
-      status: true,
-      data: updatedTray,
-    };
+    if (!updatedTray) {
+      throw new NotFoundException('Tray not found');
+    }
+
+    return updatedTray; 
   }
 
   @Delete(':id')

@@ -52,18 +52,20 @@ export class TrayService extends BaseService<TrayDocument> {
       })),
     };
   }
+
   async update(id: string, trayData: UpdateTrayDto): Promise<TrayDocument | null> {
-    const updatedTray = await this.trayModel.findByIdAndUpdate(id, trayData, { new: true });
+    const updatedTray = await this.trayModel.findByIdAndUpdate(id, { ...trayData, mqttUpdate: false }, { new: true });
 
     if (updatedTray) {
-      updatedTray.mqttUpdate = false; 
-      await updatedTray.save();
+      await this.publishTrayUpdate(updatedTray);
     }
 
     return updatedTray;
   }
 
   async publishTrayUpdate(tray: TrayDocument) {
+    const jars = await this.jarModel.find({ trayId: tray._id });
+
     const trayData = {
       name: tray.name,
       macAddress: tray.macAddress,
@@ -77,21 +79,21 @@ export class TrayService extends BaseService<TrayDocument> {
         ssid: tray.wifiCred.ssid,
         password: tray.wifiCred.password,
       },
-      jars: await this.jarModel.find({ trayId: tray._id }), 
+      jars: jars.map(jar => ({
+        name: jar.name,
+        uniqueId: jar.uniqueId,
+        quantity: jar.quantity,
+        expirtyDate: jar.expirtyDate,
+        showQuantity: jar.showQuantity,
+        primaryPosition: jar.primaryPosition,
+        assignedPosition: jar.assignedPosition,
+      })),
     };
 
-    // console.log('Attempting to publish tray update to MQTT:', trayData); // Log before publishing
-
     try {
-      await this.mqttService.publishCombinedUpdate(trayData, (error) => {
-        if (!error) {
-          tray.mqttUpdate = true;
-          tray.save(); 
-        }
-      });
-      // console.log('Published tray update to MQTT:', trayData);
+      await this.mqttService.publishUpdatedData(trayData);
     } catch (error) {
-      console.error('Error publishing tray update to MQTT:', error); 
+      console.error('Error publishing tray update to MQTT:', error);
     }
   }
 }

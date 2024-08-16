@@ -18,27 +18,23 @@ export class UpdatePublisherService {
   async publishUpdates() {
     const traysToPublish = await this.trayModel.find({ mqttUpdate: false });
 
-    for (const tray of traysToPublish) {
+    const publishPromises = traysToPublish.map(async (tray) => {
       const jars = await this.jarModel.find({ trayId: tray._id });
 
-      // Construct the combined data object
-      const combinedData = {
-        tray: {
-          name: tray.name,
-          macAddress: tray.macAddress,
-          userId: tray.user.toString(),
-          jarCount: tray.jarCount,
-          battery: tray.battery,
-          showBattery: tray.showBatteryPercentage,
-          showJarCount: tray.showJarCounts,
-          showJarDetails: tray.showJarDetails,
-          wifiCred: {
-            ssid: tray.wifiCred.ssid,
-            password: tray.wifiCred.password,
-          },
+      const trayData = {
+        name: tray.name,
+        macAddress: tray.macAddress,
+        userId: tray.user.toString(),
+        jarCount: tray.jarCount,
+        battery: tray.battery,
+        showBattery: tray.showBatteryPercentage,
+        showJarCount: tray.showJarCounts,
+        showJarDetails: tray.showJarDetails,
+        wifiCred: {
+          ssid: tray.wifiCred.ssid,
+          password: tray.wifiCred.password,
         },
         jars: jars.map(jar => ({
-          _id: jar._id.toString(),
           name: jar.name,
           uniqueId: jar.uniqueId,
           quantity: jar.quantity,
@@ -49,14 +45,12 @@ export class UpdatePublisherService {
         })),
       };
 
-      // Publish the combined data to MQTT
-      await this.mqttService.publishCombinedUpdate(combinedData, (error) => {
-        if (!error) {
-          // Set mqttUpdate to true after successful publish
-          tray.mqttUpdate = true;
-          tray.save(); // Save the updated tray
-        }
-      });
-    }
+      await this.mqttService.publishUpdatedData(trayData);
+
+     
+      await tray.save();
+    });
+
+    await Promise.all(publishPromises);
   }
 }

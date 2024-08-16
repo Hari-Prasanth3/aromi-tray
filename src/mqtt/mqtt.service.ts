@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, BadRequestException } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import * as mqtt from 'mqtt';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -32,14 +32,22 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
           console.log('Subscribed to topic');
         }
       });
+
+      this.client.subscribe('test_smart/ack', (err) => {
+        if (err) {
+          console.error('Failed to subscribe to acknowledgment topic:', err);
+        } else {
+          console.log('Subscribed to acknowledgment topic');
+        }
+      });
     });
 
     this.client.on('message', async (topic, message) => {
-      try {
-        const data = JSON.parse(message.toString());
+      const data = JSON.parse(message.toString());
+      if (topic === 'test_smart') {
         await this.handleMqttData(data);
-      } catch (error) {
-        console.error('Error handling MQTT data:', error);
+      } else if (topic === 'test_smart/ack') {
+        await this.handleAcknowledgment(data);
       }
     });
 
@@ -61,44 +69,36 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
   }
 
   async handleMqttData(data: any) {
-    // if (!data || !data.macAddress || !data.userId || !data.name) {
-    //   throw new BadRequestException('Invalid data received: Missing required fields');
-    // }
+    // console.log('Data received for tray:', data);
 
     const existingTray = await this.trayModel.findOne({ macAddress: data.macAddress });
 
-    if (existingTray) {
-      console.log('MAC address already exists. Skipping data save.');
-      return;
-    }
+    if (!existingTray) {
+      const newTray = new this.trayModel({
+        name: data.name,
+        macAddress: data.macAddress,
+        user: new Types.ObjectId(data.userId),
+        jarCount: data.jarCount,
+        battery: data.battery,
+        showBatteryPercentage: data.showBattery,
+        showJarCounts: data.showJarCount,
+        showJarDetails: data.showJarDetails,
+        wifiCred: {
+          ssid: data.wifiCred?.ssid || '',
+          password: data.wifiCred?.password || '',
+        },
+      });
 
-    if (!Types.ObjectId.isValid(data?.tray?.userId)) {
-      throw new BadRequestException('Invalid user ID');
-    }
-
-    const newTray = new this.trayModel({
-      name: data.name,
-      macAddress: data.macAddress,
-      user: new Types.ObjectId(data.userId),
-      jarCount: data?.tray?.jarCount,
-      battery: data?.tray?.battery,
-      showBatteryPercentage: data?.tray?.showBattery, 
-      showJarCounts: data?.tray?.showJarCount,
-      showJarDetails: data?.tray?.showJarDetails,
-      wifiCred: {
-        ssid: data.wifiCred?.ssid || '',
-        password: data.wifiCred?.password || '', 
-      },
-    });
-
-    try {
-      const savedTray = await newTray.save();
-      console.log('Tray details saved successfully:', savedTray);
-
-      await this.saveJars(data.jars, savedTray._id as Types.ObjectId);
-    } catch (error) {
-      console.error('Error saving tray details:', error);
-    }
+      try {
+        const savedTray = await newTray.save() as TrayDocument;
+        console.log('Tray details saved successfully:', savedTray);
+        await this.saveJars(data.jars, savedTray._id as Types.ObjectId);
+        
+        this.publishAcknowledgment(savedTray.macAddress);
+      } catch (error) {
+        console.error('Error saving tray details:', error);
+      }
+    } 
   }
 
   async saveJars(jars: any[], trayId: Types.ObjectId) {
@@ -107,8 +107,10 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    await this.jarModel.deleteMany({ trayId });
+
     const jarDocuments = jars.map(jar => ({
-      trayId: trayId, 
+      trayId,
       name: jar.name,
       uniqueId: jar.uniqueId,
       quantity: jar.quantity,
@@ -125,20 +127,43 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
       console.error('Error saving jar details:', error);
     }
   }
+  async publishUpdatedData(data: any) {
+    console.log('Publishing updated data to MQTT:', data);
 
-  async publishCombinedUpdate(data: any, callback: (error?: Error) => void) {
-    console.log('Attempting to publish combined update to MQTT:', data);
     this.client.publish('test_smart', JSON.stringify(data), {}, (error) => {
       if (error) {
-        console.error('Error publishing combined update to MQTT:', error);
-        callback(error);
+        console.error('Error publishing updated data to MQTT:', error);
       } else {
-        console.log('Published combined update to MQTT:', data);
-        callback();
+        console.log('Published updated data to MQTT:', data);
       }
     });
   }
 
+  async publishAcknowledgment(macAddress: string) {
+    const ackMessage = {
+      macAddress: macAddress,
+      status: 'success',
+    };
+
+    this.client.publish('test_smart/ack', JSON.stringify(ackMessage), {}, (error) => {
+      if (error) {
+        console.error('Error publishing acknowledgment:', error);
+      } else {
+        console.log('Acknowledgment published:', ackMessage);
+      }
+    });
+  }
+
+  async handleAcknowledgment(data: any) {
+    const { macAddress } = data;
+
+    const tray = await this.trayModel.findOne({ macAddress });
+    if (tray) {
+      tray.mqttUpdate = true;
+      await tray.save();
+      console.log(`Acknowledgment received for tray ${macAddress}. mqttUpdate set to true.`);
+    }
+  }
   onModuleDestroy() {
     if (this.client) {
       this.client.end();
