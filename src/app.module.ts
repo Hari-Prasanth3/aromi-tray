@@ -6,7 +6,6 @@ import { config } from './config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
-import { MqttService } from './mqtt/mqtt.service';
 import { TrayModule } from './tray/tray.module';
 import { JarModule } from './jar/jar.module';
 import { MqttModule } from './mqtt/mqtt.module';
@@ -14,6 +13,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { UpdatePublisherService } from './utils/UpdatePublisherService';
 import { Tray, TraySchema } from './tray/tray.schema';
 import { Jar, JarSchema } from './jar/jar.schema';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -29,6 +29,7 @@ import { Jar, JarSchema } from './jar/jar.schema';
     UserModule,
     TrayModule,
     JarModule,
+    NotificationModule,
     
   ],
   controllers:[AppController],

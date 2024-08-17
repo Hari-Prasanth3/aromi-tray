@@ -52,15 +52,46 @@ export class TrayService extends BaseService<TrayDocument> {
       })),
     };
   }
-
-  async update(id: string, trayData: UpdateTrayDto): Promise<TrayDocument | null> {
+  async update(id: string, trayData: UpdateTrayDto): Promise<any> {
     const updatedTray = await this.trayModel.findByIdAndUpdate(id, { ...trayData, mqttUpdate: false }, { new: true });
 
-    if (updatedTray) {
-      await this.publishTrayUpdate(updatedTray);
+    if (!updatedTray) {
+      throw new NotFoundException('Tray not found');
     }
 
-    return updatedTray;
+    await this.publishTrayUpdate(updatedTray);
+
+    const jars = await this.jarModel.find({ trayId: updatedTray._id });
+    const responseData = {
+      _id: updatedTray._id,
+      name: updatedTray.name,
+      macAddress: updatedTray.macAddress,
+      userId: updatedTray.user.toString(),
+      jarCount: updatedTray.jarCount,
+      battery: updatedTray.battery,
+      showBattery: updatedTray.showBatteryPercentage,
+      showJarCount: updatedTray.showJarCounts,
+      showJarDetails: updatedTray.showJarDetails,
+      wifiCred: {
+        ssid: updatedTray.wifiCred.ssid,
+        password: updatedTray.wifiCred.password,
+      },
+      jars: jars.map(jar => ({
+        _id: jar._id.toString(),
+        name: jar.name,
+        uniqueId: jar.uniqueId,
+        quantity: jar.quantity,
+        expirtyDate: jar.expirtyDate,
+        showQuantity: jar.showQuantity,
+        primaryPosition: jar.primaryPosition,
+        assignedPosition: jar.assignedPosition,
+      })),
+    };
+
+    return {
+      status: true,
+      data: responseData,
+    };
   }
 
   async publishTrayUpdate(tray: TrayDocument) {

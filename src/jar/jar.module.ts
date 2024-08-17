@@ -11,6 +11,6 @@ import { TrayModule } from 'src/tray/tray.module';
   controllers: [JarController],
 
   providers: [JarService], 
-  exports: [JarService], 
+  exports: [JarService,MongooseModule], 
 })
 export class JarModule {}

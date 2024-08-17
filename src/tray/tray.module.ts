@@ -16,10 +16,12 @@ import { JarModule } from 'src/jar/jar.module';
     MongooseModule.forFeature([{ name: Jar.name, schema: JarSchema }]), 
     MongooseModule.forFeature([{ name: User.name, schema: userSchema }]),
     UserModule,
-    JarModule
+    JarModule,
+    
   ],
   controllers: [TrayController],
   providers: [TrayService, MqttService,AuthGuard],
-  exports: [TrayService,MqttService],
+  exports: [TrayService,MqttService,MongooseModule],
+
 })
 export class TrayModule {}

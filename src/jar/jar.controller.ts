@@ -1,19 +1,10 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Put } from '@nestjs/common';
 import { JarService } from './jar.service';
-import { CreateJarDto, UpdateJarDto } from './jar.dto';
+import { UpdateJarDto } from './jar.dto';
 
 @Controller('jars')
 export class JarController {
   constructor(private readonly jarService: JarService) {}
-
-  @Post()
-  async createJar(@Body() jarData: CreateJarDto) {
-    const jar = await this.jarService.createJar(jarData);
-    return {
-      status: true,
-      data: jar,
-    };
-  }
 
   @Get(':id')
   async getJarById(@Param('id') id: string) {
@@ -45,12 +36,4 @@ export class JarController {
     };
   }
 
-  @Get('tray/:id') 
-  async getJarsByTrayId(@Param('id') trayId: string) {
-    const jars = await this.jarService.getJarsByTrayId(trayId); 
-    return {
-      status: true,
-      data: jars,
-    };
-  }
 }

@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Jar, JarDocument } from './jar.schema';
-import { CreateJarDto, UpdateJarDto } from './jar.dto';
+import { UpdateJarDto } from './jar.dto';
 import { BaseService } from 'src/base/base.service';
 import { TrayService } from 'src/tray/tray.service';
 
@@ -18,23 +18,14 @@ export class JarService extends BaseService<JarDocument> {
     super(jar)
   }
 
-
-  async createJar(jarData: CreateJarDto): Promise<Jar> {
-    const newJar = new this.jar(jarData);
-    return newJar.save();
-  }
-  async getJarsByTrayId(trayId: string): Promise<Jar[]> {
-    return this.jar.find({ trayId }).exec();
-  }
-
-
-  
   async update(id: string, jarData: UpdateJarDto): Promise<JarDocument | null> {
     const updatedJar = await this.jar.findByIdAndUpdate(id, jarData, { new: true });
 
-    if (updatedJar) {
+    if (!updatedJar) {
+        throw new NotFoundException('Tray not found');
+      }
       await this.trayService.update(updatedJar.trayId.toString(), { mqttUpdate: false }); 
-    }
+    
 
     return updatedJar;
   }

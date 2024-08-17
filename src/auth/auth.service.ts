@@ -39,7 +39,7 @@ export class AuthService {
     const phoneNumberDigitsOnly = phoneNumber.replace(/^\+(\d{1,3})/, '');
 
     if (!/^\d{10}$/.test(phoneNumberDigitsOnly)) {
-      throw new BadRequestException('Phone number must be 10 digits long.');
+        throw new BadRequestException('Phone number must be 10 digits long.');
     }
 
     const otp = Math.floor(1000 + Math.random() * 9000).toString();
@@ -58,21 +58,17 @@ export class AuthService {
                 throw new BadRequestException('Your account has been deleted.');
             }
 
-            if (user.status === 'completed') {
-                return { tempToken, status: 'completed' };
-            }
-
             await this.userModel.findOneAndUpdate(
                 { phoneNumber },
-                { otp, otpCreatedAt, status: 'pending' },
-                { upsert: true, new: true }
+                { otp, otpCreatedAt, status: user.status === 'completed' ? 'completed' : 'pending' },
+                { new: true }
             );
+
+            return { tempToken, status: user.status === 'completed' ? 'completed' : 'pending' };
         } else {
             await this.userModel.create({ phoneNumber, otp, otpCreatedAt, status: 'pending' });
+            return { tempToken, status: 'pending' };
         }
-
-        return { tempToken, status: 'pending' };
-
     } catch (error) {
         console.error('Error sending OTP:', error.message);
 
@@ -83,7 +79,6 @@ export class AuthService {
         }
     }
 }
-
 
 async verifyOtp(otp: string, tempToken: string): Promise<{ _id: string, phoneNumber: string, accessToken: string, refreshToken: string, notification: boolean, status: string }> {
   try {

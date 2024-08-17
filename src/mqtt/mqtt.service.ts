@@ -29,7 +29,7 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
         if (err) {
           console.error('Failed to subscribe to topic:', err);
         } else {
-          console.log('Subscribed to topic');
+          console.log('Subscribed to topic: test_smart');
         }
       });
 
@@ -37,7 +37,7 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
         if (err) {
           console.error('Failed to subscribe to acknowledgment topic:', err);
         } else {
-          console.log('Subscribed to acknowledgment topic');
+          console.log('Subscribed to acknowledgment topic: test_smart/ack');
         }
       });
     });
@@ -69,8 +69,6 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
   }
 
   async handleMqttData(data: any) {
-    // console.log('Data received for tray:', data);
-
     const existingTray = await this.trayModel.findOne({ macAddress: data.macAddress });
 
     if (!existingTray) {
@@ -90,43 +88,79 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
       });
 
       try {
-        const savedTray = await newTray.save() as TrayDocument;
+        const savedTray = await newTray.save();
         console.log('Tray details saved successfully:', savedTray);
         await this.saveJars(data.jars, savedTray._id as Types.ObjectId);
         
-        this.publishAcknowledgment(savedTray.macAddress);
+        await this.publishAcknowledgment(savedTray.macAddress);
       } catch (error) {
         console.error('Error saving tray details:', error);
       }
-    } 
+    } else {
+      existingTray.jarCount = data.jarCount;
+      existingTray.battery = data.battery;
+      existingTray.showBatteryPercentage = data.showBattery;
+      existingTray.showJarCounts = data.showJarCount;
+      existingTray.showJarDetails = data.showJarDetails;
+
+      try {
+        await existingTray.save();
+        console.log('Tray updated successfully:', existingTray);
+
+        await this.saveJars(data.jars, existingTray._id as Types.ObjectId);
+        
+        // Publish acknowledgment after updating tray and jars
+        // await this.publishAcknowledgment(existingTray.macAddress);
+      } catch (error) {
+        console.error('Error updating tray details:', error);
+      }
+    }
   }
 
   async saveJars(jars: any[], trayId: Types.ObjectId) {
     if (!jars || jars.length === 0) {
-      console.log('No jars to save.');
-      return;
+      console.log('Received empty jars array. Existing jars will be retained.');
+      return; 
     }
 
-    await this.jarModel.deleteMany({ trayId });
+    for (const jar of jars) {
+      const existingJar = await this.jarModel.findOne({ uniqueId: jar.uniqueId, trayId });
 
-    const jarDocuments = jars.map(jar => ({
-      trayId,
-      name: jar.name,
-      uniqueId: jar.uniqueId,
-      quantity: jar.quantity,
-      expirtyDate: jar.expirtyDate,
-      showQuantity: jar.showQuantity,
-      primaryPosition: jar.primaryPosition,
-      assignedPosition: jar.assignedPosition,
-    }));
+      if (existingJar) {
+        existingJar.name = jar.name;
+        existingJar.quantity = jar.quantity;
+        existingJar.expirtyDate = jar.expirtyDate;
+        existingJar.showQuantity = jar.showQuantity;
+        existingJar.primaryPosition = jar.primaryPosition;
+        existingJar.assignedPosition = jar.assignedPosition;
 
-    try {
-      await this.jarModel.insertMany(jarDocuments);
-      console.log('Jar details saved successfully:', jarDocuments);
-    } catch (error) {
-      console.error('Error saving jar details:', error);
+        try {
+          await existingJar.save();
+        } catch (error) {
+          console.error(`Error updating jar ${jar.uniqueId}:`, error);
+        }
+      } else {
+        const newJar = new this.jarModel({
+          trayId,
+          name: jar.name,
+          uniqueId: jar.uniqueId,
+          quantity: jar.quantity,
+          expirtyDate: jar.expirtyDate,
+          showQuantity: jar.showQuantity,
+          primaryPosition: jar.primaryPosition,
+          assignedPosition: jar.assignedPosition,
+        });
+
+        try {
+          await newJar.save();
+          console.log('New jar created successfully:', newJar);
+        } catch (error) {
+          console.error('Error saving new jar details:', error);
+        }
+      }
     }
   }
+
   async publishUpdatedData(data: any) {
     console.log('Publishing updated data to MQTT:', data);
 
@@ -164,6 +198,7 @@ export class MqttService implements OnModuleInit, OnModuleDestroy {
       console.log(`Acknowledgment received for tray ${macAddress}. mqttUpdate set to true.`);
     }
   }
+
   onModuleDestroy() {
     if (this.client) {
       this.client.end();

@@ -1,38 +1,18 @@
 import { IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
-
-export class CreateTrayDto {
-  @IsString()
-  @IsNotEmpty()
-  name: string;
-
-  @IsBoolean()
-  showBatteryPercentage: boolean;
-
-  @IsBoolean()
-  showJarCounts: boolean;
-
-  @IsBoolean()
-  showJarDetails: boolean;
-
-  @IsString()
-  @IsNotEmpty()
-  user: string; 
-}
-
 export class UpdateTrayDto {
-  @IsOptional()
+  @IsNotEmpty()
   @IsString()
   name?: string;
 
-  @IsOptional()
+  @IsNotEmpty()
   @IsBoolean()
   showBatteryPercentage?: boolean;
 
-  @IsOptional()
+  @IsNotEmpty()
   @IsBoolean()
   showJarCounts?: boolean;
 
-  @IsOptional()
+  @IsNotEmpty()
   @IsBoolean()
   showJarDetails?: boolean;
 
